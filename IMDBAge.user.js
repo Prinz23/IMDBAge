@@ -37,6 +37,7 @@
     This script is not abandoned, email thomas@stewarts.org.uk if it breaks.
 
     Changelog
+    * 2.15 adapted to new layout
     * 2.14 fixed icon, improved getNameDates, new style fixes, reformating
     * 2.13 added https urls, removed scriptvals, fixed title pages
     * 2.12 fixed adding ages to individual films and fixed old style
@@ -64,13 +65,13 @@ var doFilmAge  = true;
 // ==UserScript==
 // @name        IMDBAge
 // @description Adds the age and other various info onto IMDB pages.
-// @version     2.14
+// @version     2.15
 // @author      Thomas Stewart
 // @namespace   http://www.stewarts.org.uk
 // @include     http*://*imdb.com/name/*
 // @include     http*://*imdb.com/title/*
+// @require  http://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js
 // @homepageURL https://stewarts.org.uk/project/imdbage/
-// @installURL  https://stewarts.org.uk/project/imdbage/IMDBAge.user.js
 // @icon        https://stewarts.org.uk/project/imdbage/icon.png
 // @license GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
 // ==/UserScript==
@@ -191,76 +192,112 @@ function chineseZodiac(year) {
         else { return ""; }
 }
 
+/*--- waitForKeyElements():  A utility function, for Greasemonkey scripts,
+    that detects and handles AJAXed content.
+
+    IMPORTANT: This function requires your script to have loaded jQuery.
+*/
+function waitForKeyElements (
+    selectorTxt,    /* Required: The jQuery selector string that
+                        specifies the desired element(s).
+                    */
+    actionFunction, /* Required: The code to run when elements are
+                        found. It is passed a jNode to the matched
+                        element.
+                    */
+    bWaitOnce,      /* Optional: If false, will continue to scan for
+                        new elements even after the first match is
+                        found.
+                    */
+    iframeSelector  /* Optional: If set, identifies the iframe to
+                        search.
+                    */
+) {
+    var targetNodes, btargetsFound;
+
+    if (typeof iframeSelector == "undefined")
+        targetNodes     = $(selectorTxt);
+    else
+        targetNodes     = $(iframeSelector).contents ()
+                                           .find (selectorTxt);
+
+    if (targetNodes  &&  targetNodes.length > 0) {
+        btargetsFound   = true;
+        /*--- Found target node(s).  Go through each and act if they
+            are new.
+        */
+        targetNodes.each ( function () {
+            var jThis        = $(this);
+            var alreadyFound = jThis.data ('alreadyFound')  ||  false;
+
+            if (!alreadyFound) {
+                //--- Call the payload function.
+                var cancelFound     = actionFunction (jThis);
+                if (cancelFound)
+                    btargetsFound   = false;
+                else
+                    jThis.data ('alreadyFound', true);
+            }
+        } );
+    }
+    else {
+        btargetsFound   = false;
+    }
+
+    //--- Get the timer-control variable for this selector.
+    var controlObj      = waitForKeyElements.controlObj  ||  {};
+    var controlKey      = selectorTxt.replace (/[^\w]/g, "_");
+    var timeControl     = controlObj [controlKey];
+
+    //--- Now set or clear the timer as appropriate.
+    if (btargetsFound  &&  bWaitOnce  &&  timeControl) {
+        //--- The only condition where we need to clear the timer.
+        clearInterval (timeControl);
+        delete controlObj [controlKey]
+    }
+    else {
+        //--- Set a timer, if needed.
+        if ( ! timeControl) {
+            timeControl = setInterval ( function () {
+                    waitForKeyElements (    selectorTxt,
+                                            actionFunction,
+                                            bWaitOnce,
+                                            iframeSelector
+                                        );
+                },
+                300
+            );
+            controlObj [controlKey] = timeControl;
+        }
+    }
+    waitForKeyElements.controlObj   = controlObj;
+}
+
+
 /* get dates from a name page
 input: born and died called by ref, they are filled with dates from the page
 returns: whether they are dead or alive */
 function getNameDates(born, died) {
         var alive = true;
 
-        /* if new style */
-        if (newStyle()) {
-                var nodes = document.evaluate("//script[@type='application/ld+json']",
-                        document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        var bdata = JSON.parse(document.getElementById('__NEXT_DATA__').textContent)['props']['pageProps']['mainColumnData']['birthDate'];
+        if (bdata) {
+          var bd = bdata['dateComponents'];
+          if (bd['month'] === null || bd['day'] == null){
+            justyear = true;
+          }
+          born.setFullYear(bd['year']);
+          born.setMonth(bd['month'] - 1);
+          born.setDate(bd['day']);
+        }
+        var ddata = JSON.parse(document.getElementById('__NEXT_DATA__').textContent)['props']['pageProps']['mainColumnData']['deathDate'];
+        if (ddata){
+          alive = false;
+          var dd = ddata['dateComponents'];
+          died.setFullYear(dd['year']);
+          died.setMonth(dd['month'] - 1);
+          died.setDate(dd['day']);
 
-                if (nodes.snapshotLength == 1) {
-                        jsond = JSON.parse(nodes.snapshotItem(0).firstChild.textContent);
-
-                        /* find the birth date */
-                        date = jsond.birthDate.split("-");
-                        born.setFullYear(date[0]);
-                        born.setMonth(date[1] - 1);
-                        born.setDate(date[2]);
-
-                        /* find the death date */
-                        date = jsond.deathDate;
-                        if(date) {
-                                date = date.split("-")
-                                died.setFullYear(date[0]);
-                                died.setMonth(date[1] - 1);
-                                died.setDate(date[2]);
-                                alive = false;
-                        }
-
-                }
-        /* else old style */
-        } else {
-                /* find the birth date */
-                var nodes = document.evaluate(
-                        "//div[contains(@class,'info-content')]/a[contains(@href,'birth')]",
-                        document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-                        null);
-                if (nodes.snapshotLength == 3) {
-                        monthday = nodes.snapshotItem(0).getAttribute("href")
-                        month = monthday.substring(28, 30)
-                        day = monthday.substring(31, 33)
-
-                        year = nodes.snapshotItem(1).getAttribute("href")
-                        year = year.substring(24, 28);
-
-                        born.setFullYear(year);
-                        born.setMonth(month - 1);
-                        born.setDate(day);
-                        alive = true
-                }
-
-                /* find the death date */
-                var nodes = document.evaluate(
-                        "//div[contains(@class,'info-content')]/a[contains(@href,'death')]",
-                        document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-                        null);
-                if (nodes.snapshotLength == 2) {
-                        monthday = nodes.snapshotItem(0).getAttribute("href")
-                        month = monthday.substring(6, 8)
-                        day = monthday.substring(09,11)
-
-                        year = nodes.snapshotItem(1).getAttribute("href")
-                        year = year.substring(24, 28);
-
-                        died.setFullYear(year);
-                        died.setMonth(month - 1);
-                        died.setDate(day);
-                        alive = false
-                }
         }
 
         //alert("Born: " + born + "\nDied: " + died + "\nAlive: " + alive);
@@ -293,8 +330,6 @@ function getTitleDates() {
 input: alive status, and dates
 returns: none */
 function addAge(alive, born, died) {
-        var justyear;
-
         /* find the difference between two times */
         var age;
         if (died == undefined) {
@@ -308,42 +343,31 @@ function addAge(alive, born, died) {
         /* convert difference into years */
         age = age / (1000 * 60 * 60 * 24 * 365.242199);
 
+        // if age is unknown exit
+        if (age < 1) {
+          return
+        }
+
         /* get nice values */
         var years =  Math.floor( age );
         var months = Math.floor( (age - years) * 12 );
 
-        var nodes = document.evaluate("//a[contains(@href,'/date')]",
-                document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-
-        /* only print the year if there aren't dates */
-        if ((alive == true && nodes.snapshotLength == 1) ||
-            (alive == false && nodes.snapshotLength == 2)) {
-                justyear = false;
-        } else {
-                justyear = true;
-        }
-
-        /* loop over all the a tags involving dates */
-        var nodes = document.evaluate(
-                "//a[contains(@href,'birth_year')] | //a[contains(@href,'death_date')]",
-                document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-
         /* only count months if we found month & day info */
+        var p1 = document.createElement("p");
+        p1.classList.add('age-textbox');
         var container = document.createTextNode(
                 " (Age: " + years + " year" + (years == 1 ? '' : 's') +
                 (!justyear ? ", " + months + " month" + (months == 1 ? '' : 's') : '') + ")");
+        p1.appendChild(container);
 
         /* loop over all dates */
         if (alive == true) {
-                node = nodes.snapshotItem(0);
-                node.parentNode.insertBefore(container, node.nextSibling);
+                node = document.querySelectorAll("[data-testid='hero__pageTitle']")[0];
+                node.parentNode.insertBefore(p1, node.nextSibling);
         } else {
-                node = nodes.snapshotItem(1);
+                node = document.querySelectorAll("[data-testid='hero__pageTitle']")[0];
 
-                //only add death age on old layout, as new layout has it!
-                if (!newStyle()) {
-                        node.parentNode.insertBefore(container, node.nextSibling);
-                }
+                node.parentNode.insertBefore(p1, node.nextSibling);
         }
 }
 
@@ -352,24 +376,21 @@ input: date
 returns: none */
 function addAges(born) {
         //find all the films, this in includes things like producer and writer
-        var nodes = document.evaluate(
-                /* new style and old style */
-                "//span[contains(@class,'year_column')]|//div[@id='tn15content']/div/ol/li",
-                document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        var nodes = document.evaluate("//div[contains(@class, 'ipc-metadata-list-summary-item__cc')]//label[contains(@class,'ipc-metadata-list-summary-item__li')]",
+                                      document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
 
         //loop round each film
         for (var i = 0; i < nodes.snapshotLength; i++) {
                 var node = nodes.snapshotItem(i);
+                // on pressing "see all" skip already added age entries
+                if (node.classList.contains('relative_age')){
+                        continue;
+                }
                 //extract the year of the film depending on style
-                if (newStyle()) {
-                        yearindex = node.innerHTML.search("[1-2][0-9]{3}")
-                        //if we don't find a year, continue with for loop
-                        if (yearindex < 0) {
-                                continue;
-                        }
-                } else {
-                        yearindex = node.innerHTML.search(
-                                "[1-2][0-9]{3}[/I]{0,2}[)]")
+                yearindex = node.innerHTML.search("[1-2][0-9]{3}")
+                //if we don't find a year, continue with for loop
+                if (yearindex < 0) {
+                        continue;
                 }
                 var filmborn = node.innerHTML.substring(yearindex,
                         yearindex + 4);
@@ -404,6 +425,7 @@ function addAges(born) {
                 /* add in age text */
                 node.innerHTML = node.innerHTML.substring(0,yearindex)
                         + agetxt + ", " + node.innerHTML.substring(yearindex)
+                node.classList.add('relative_age');
         }
 }
 
@@ -411,23 +433,19 @@ function addAges(born) {
 input: date person is born
 returns: none */
 function addSigns(born) {
-        /* find place to stick the info */
-        var nodes = document.evaluate( "//a[contains(@href,'birth_year')]",
-                document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-
         /* make a node with info in */
         var container = document.createTextNode(
-                ", Tropical Zodiac Sign: " + tropicalZodiac(born.getMonth() + 1, born.getDate()) +
+                "Tropical Zodiac Sign: " + tropicalZodiac(born.getMonth() + 1, born.getDate()) +
                 ", Chinese Zodiac Sign: " + chineseZodiac(born.getFullYear())
                 );
+        var p1 = document.createElement("p");
+        p1.appendChild(container);
 
-        /* should be the first occurance of the latter */
-        var node = nodes.snapshotItem(0);
+        /* find place to stick the info */
+        var node = document.getElementsByClassName("age-textbox")[0];
 
         /* attach it */
-        if (nodes.snapshotLength > 0) {
-                node.parentNode.insertBefore(container, node.nextSibling);
-        }
+        node.parentNode.insertBefore(p1, node.nextSibling);
 }
 
 /* add the age of the film to the page
@@ -455,51 +473,46 @@ function addFilmAge(filmAge) {
         }
 
         /* find place to stick the info */
-        var nodes = document.evaluate(
-                /* old style and new style */
-                "//div[contains(@id,'tn15title')]//a[contains(@href,'year')]|//div[@class='subtext']/a[@title='See more release dates']|//div[contains(@class,'TitleBlock__TitleMetaDataContainer')]/ul/li",
-                document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        var node = document.querySelectorAll("[data-testid='title-details-releasedate'] li")[0]
 
         /* create new span with formatting to match */
         var span = document.createElement('span');
-        span.style.fontSize = "11px";
+        //span.style.fontSize = "11px";
         span.appendChild(container);
 
-        /* should be the first occurrence of the latter */
-        var node = nodes.snapshotItem(0);
         /* attach it */
         node.parentNode.insertBefore(span, node.nextSibling);
 }
 
-/* find out if we are using the newstyle on not, works on name and title pages
-input: none
-returns: true if using the new style */
-function newStyle() {
-        var nodes = document.evaluate( "//div[@id='tn15content']", document,
-                null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-        if (nodes.snapshotLength == 1) {
-                return false
-        } else {
-                return true
-        }
-}
 
 /* code starts, two options, either it is a name page ... */
 if (window.location.href.indexOf('name') != -1) {
         born = new Date();
         died = new Date();
+        var justyear = false;
         /* get needed dates */
         var alive = getNameDates(born, died);
+        /* convert difference into years */
+        age = (new Date() - born) / (1000 * 60 * 60 * 24 * 365.242199);
+        if (age > 1){
 
-        /* add wanted bits */
-        if(doSigns == true) {
-                addSigns(born);
-        }
-        if(doNameAge == true) {
-                addAge(alive, born, died);
-        }
-        if(doNameAges == true) {
+              /* add wanted bits */
+              if(doNameAge == true) {
+                      addAge(alive, born, died);
+              }
+              if(doSigns == true) {
+                      addSigns(born);
+              }
+              if(doNameAges == true) {
+                      addAges(born.getFullYear());
+              }
+
+
+              function addNewAges(jNode){
                 addAges(born.getFullYear());
+              }
+              // add callback when see all is pressed
+              waitForKeyElements('.ipc-metadata-list-summary-item__c', addNewAges);
         }
 
 /* ... or it is a title page */
@@ -512,3 +525,4 @@ if (window.location.href.indexOf('name') != -1) {
                 addFilmAge(filmAge);
         }
 }
+
