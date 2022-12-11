@@ -1,4 +1,4 @@
-/*  IMDBAge v2.16 - Greasemonkey script to add actors ages to IMDB pages
+/*  IMDBAge v2.17 - Greasemonkey script to add actors ages to IMDB pages
     Copyright (C) 2005-2020 Thomas Stewart <thomas@stewarts.org.uk>
 
     This program is free software: you can redistribute it and/or modify
@@ -37,6 +37,7 @@
     This script is not abandoned, email thomas@stewarts.org.uk if it breaks.
 
     Changelog
+    * 2.17 fix month calculation
     * 2.16 fix chinese signs
     * 2.15 adapted to new layout
     * 2.14 fixed icon, improved getNameDates, new style fixes, reformating
@@ -66,8 +67,8 @@ var doFilmAge  = true;
 // ==UserScript==
 // @name        IMDBAge
 // @description Adds the age and other various info onto IMDB pages.
-// @version     2.16
-// @author      Thomas Stewart
+// @version     2.17
+// @author      Prinz23
 // @namespace   http://www.stewarts.org.uk
 // @include     http*://*imdb.com/name/*
 // @include     http*://*imdb.com/title/*
@@ -477,8 +478,11 @@ function getAge(birthDate, diedDate)
     {
         age_calc--;
     }
+    if (today.getDate() < birthDate.getDate()) {
+        m--;
+    }
     if (m < 0) {
-      m = 12 + m
+        m += 12;
     }
     return [age_calc, m];
 }
