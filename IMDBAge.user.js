@@ -1,4 +1,4 @@
-/*  IMDBAge v2.14 - Greasemonkey script to add actors ages to IMDB pages
+/*  IMDBAge v2.16 - Greasemonkey script to add actors ages to IMDB pages
     Copyright (C) 2005-2020 Thomas Stewart <thomas@stewarts.org.uk>
 
     This program is free software: you can redistribute it and/or modify
@@ -37,6 +37,7 @@
     This script is not abandoned, email thomas@stewarts.org.uk if it breaks.
 
     Changelog
+    * 2.16 fix chinese signs
     * 2.15 adapted to new layout
     * 2.14 fixed icon, improved getNameDates, new style fixes, reformating
     * 2.13 added https urls, removed scriptvals, fixed title pages
@@ -65,13 +66,14 @@ var doFilmAge  = true;
 // ==UserScript==
 // @name        IMDBAge
 // @description Adds the age and other various info onto IMDB pages.
-// @version     2.15
+// @version     2.16
 // @author      Thomas Stewart
 // @namespace   http://www.stewarts.org.uk
 // @include     http*://*imdb.com/name/*
 // @include     http*://*imdb.com/title/*
 // @require  http://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js
-// @homepageURL https://stewarts.org.uk/project/imdbage/
+// @homepageURL https://github.com/Prinz23/IMDBAge/
+// @downloadURL https://github.com/Prinz23/IMDBAge/raw/master/IMDBAge.user.js
 // @icon        https://stewarts.org.uk/project/imdbage/icon.png
 // @license GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
 // ==/UserScript==
@@ -134,63 +136,55 @@ TODO: add ages to individual ages of actors to a film page, very hard,
 TODO: add script updater support
 */
 
-/* calculates tropical zodiac sign see http://en.wikipedia.org/wiki/Signs_of_the_Zodiac
-input:  month and day
-returns: tropical zodiac sign as string */
-function tropicalZodiac(month, day) {
-        if     (month ==  3 && day >= 21 ||
-                month ==  4 && day <= 19) { return "Aries - ♈"; }
-        else if(month ==  4 && day >= 20 ||
-                month ==  5 && day <= 20) { return "Taurus - ♉"; }
-        else if(month ==  5 && day >= 21 ||
-                month ==  6 && day <= 20) { return "Gemini - ♊"; }
-        else if(month ==  6 && day >= 21 ||
-                month ==  7 && day <= 22) { return "Cancer - ♋"; }
-        else if(month ==  7 && day >= 23 ||
-                month ==  8 && day <= 22) { return "Leo - ♌"; }
-        else if(month ==  8 && day >= 23 ||
-                month ==  9 && day <= 22) { return "Virgo - ♍"; }
-        else if(month ==  9 && day >= 23 ||
-                month == 10 && day <= 22) { return "Libra - ♎"; }
-        else if(month == 10 && day >= 23 ||
-                month == 11 && day <= 21) { return "Scorpio - ♏"; }
-        else if(month == 11 && day >= 22 ||
-                month == 12 && day <= 21) { return "Sagittarius - ♐"; }
-        else if(month == 12 && day >= 22 ||
-                month ==  1 && day <= 19) { return "Capricorn - ♑"; }
-        else if(month ==  1 && day >= 20 ||
-                month ==  2 && day <= 18) { return "Aquarius - ♒"; }
-        else if(month ==  2 && day >= 19 ||
-                month ==  3 && day <= 20) { return "Pisces - ♓"; }
-        else { return ""; }
+class ZodiacSign {
+
+		static signs = {
+			en : ['Aries: The Ram','Taurus: The Bull','Gemini: The Twins','Cancer: The Crab','Leo: The Lion','Virgo: The Virgin','Libra: The Scales','Scorpio: The Scorpion','Sagittarius: The Archer','Capricorn: The Goat','Aquarius: The Water Bearer','Pisces: The Fish'],
+			fr : ['Bélier', 'Taureau', 'Gémeaux', 'Cancer', 'Lion', 'Vierge', 'Balance', 'Scorpion', 'Sagittaire', 'Capricorne', 'Vereau', 'Poissons'],
+			es : ['Aries', 'Tauro', 'Géminis', 'Cáncer', 'Leo', 'Virgo', 'Libra', 'Escorpio', 'Sagitario', 'Capricornio', 'Acuario', 'Piscis'],
+			ar : ['الحمل', 'الثور', 'الجوزاء', 'السرطان', 'الأسد', 'العذراء', 'الميزان', 'العقرب',' القوس', 'الجدي', 'الدلو', 'الحوت'],
+			ua : ['Овен', 'Телець', 'Близнята', 'Рак', 'Лев', 'Діва', 'Терези', 'Скорпіон', 'Стрілець', 'Козоріг', 'Водолій', 'Риби'],
+      icon : ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓']
+		}
+
+		static chineseSigns = {
+			en : ['Monkey', 'Rooster', 'Dog', 'Pig', 'Rat', 'Ox', 'Tiger', 'Rabbit', 'Dragon', 'Snake', 'Horse', 'Sheep'],
+			fr : ['Singe', 'Coq', 'Chien', 'Cochon', 'Rat', 'Bœuf', 'Tigre', 'Lapin', 'Dragon', 'Serpent', 'Cheval', 'Mouton'],
+			es : ['Mono', 'Gallo', 'Perro', 'Cerdo', 'Rata', 'Buey', 'Tigre', 'Conejo', 'Dragón', 'Serpiente', 'Caballo', 'Oveja'],
+			ar : ['القرد', 'الديك', 'الكلب', 'الخنزير', 'الفأر', 'الثور', 'النمر', 'الأرنب', 'التنين', 'الثعبان', 'الحصان', 'الخروف'],
+			ua : ['Мавпа', 'Півень', 'Собака', 'Свиня', 'Щур', 'Бик', 'Тигр', 'Кролик', 'Дракон', 'Змія', 'Кінь', 'Вівця']
+		}
+
+		static chineseElements = {
+			en : ['Metal', 'Water', 'Wood', 'Fire', 'Earth'],
+			fr : ['Métal', 'Eau', 'Bois', 'Feu', 'Terre'],
+			es : ['Metal', 'Agua', 'Madera', 'Fuego', 'Tierra'],
+			ar : ['المعدني', 'المائي', 'الخشبي', 'الناري', 'الأرضي'],
+			ua : ['Метал', 'Вода', 'Дерево', 'Вогонь', 'Земля']
+		}
+
+		constructor(value, lang = 'en') {
+			this.sign = ''
+			this.chinese = ''
+
+			if (!Object.hasOwn(ZodiacSign.signs, lang)) lang = 'en'
+			if (!isNaN(Date.parse(value))){
+				this.sign = this.#getSign(value, lang)
+				this.chinese = this.#getChineseSign(value, lang)
+			}
+		}
+
+		#getSign(x, y) {
+			return `${ZodiacSign.signs[y][Number(new Intl.DateTimeFormat('fr-TN-u-ca-persian', {month: 'numeric'}).format(Date.parse(x))) - 1]} - ${ZodiacSign.signs['icon'][Number(new Intl.DateTimeFormat('fr-TN-u-ca-persian', {month: 'numeric'}).format(Date.parse(x))) - 1]}`;
+		}
+
+		#getChineseSign(x, y){
+			let chineseDate = new Intl.DateTimeFormat('fr-TN-u-ca-chinese', {day: '2-digit', month: 'long', year:'numeric'}).format(Date.parse(x)).substring(0, 4)
+			return `${ZodiacSign.chineseSigns[y][+chineseDate % 12]} (${ZodiacSign.chineseElements[y][Math.floor(+chineseDate.charAt(3) / 2)]})`
+		}
+
 }
 
-/* calculates chinese zodiac sign see http://en.wikipedia.org/wiki/Chinese_astrology
-input:  full year
-returns: chinese zodiac sign as string */
-function chineseZodiac(year) {
-        /* no idea how to work out signs before 20C */
-        if (year < 1900) { return ""; }
-
-        /* there are 12 signs that go round in a rotation */
-        /* find years since 1900, find modulus of that, get rid of the */
-        /* sign(sic) and round it */
-        var nsign = Math.round(Math.abs((year - 1900) % 12));
-
-        if      (nsign ==  0) { return "Rat (Metal)"; }
-        else if (nsign ==  1) { return "Ox (Metal)"; }
-        else if (nsign ==  2) { return "Tiger (Water)"; }
-        else if (nsign ==  3) { return "Rabbit/Cat (Water)"; }
-        else if (nsign ==  4) { return "Dragon (wood)"; }
-        else if (nsign ==  5) { return "Snake (Wood)"; }
-        else if (nsign ==  6) { return "Horse (Fire)"; }
-        else if (nsign ==  7) { return "Goat (Fire)"; }
-        else if (nsign ==  8) { return "Monkey (Earth)"; }
-        else if (nsign ==  9) { return "Rooster (Earth)"; }
-        else if (nsign == 10) { return "Dog (Metal)"; }
-        else if (nsign == 11) { return "Pig/Wild Boar (Metal)"; }
-        else { return ""; }
-}
 
 /*--- waitForKeyElements():  A utility function, for Greasemonkey scripts,
     that detects and handles AJAXed content.
@@ -329,28 +323,11 @@ function getTitleDates() {
 /* add age of person to page
 input: alive status, and dates
 returns: none */
-function addAge(alive, born, died) {
-        /* find the difference between two times */
-        var age;
-        if (died == undefined) {
-                age = new Date() - born.getTime();
-        } else {
-                age = died.getTime() - born.getTime();
-        }
-
-        //alert("Born: " + born + "\nDied: " + died + "\nAlive: " + alive);
-
-        /* convert difference into years */
-        age = age / (1000 * 60 * 60 * 24 * 365.242199);
-
+function addAge(alive, years, months) {
         // if age is unknown exit
-        if (age < 1) {
+        if (years < 1) {
           return
         }
-
-        /* get nice values */
-        var years =  Math.floor( age );
-        var months = Math.floor( (age - years) * 12 );
 
         /* only count months if we found month & day info */
         var p1 = document.createElement("p");
@@ -434,9 +411,10 @@ input: date person is born
 returns: none */
 function addSigns(born) {
         /* make a node with info in */
+        var csign = new ZodiacSign(born);
         var container = document.createTextNode(
-                "Tropical Zodiac Sign: " + tropicalZodiac(born.getMonth() + 1, born.getDate()) +
-                ", Chinese Zodiac Sign: " + chineseZodiac(born.getFullYear())
+                "Tropical Zodiac Sign: " + csign.sign +
+                ", Chinese Zodiac Sign: " + csign.chinese
                 );
         var p1 = document.createElement("p");
         p1.appendChild(container);
@@ -485,20 +463,44 @@ function addFilmAge(filmAge) {
 }
 
 
+function getAge(birthDate, diedDate)
+{
+    if (alive){
+      var today = new Date();
+    } else {
+      var today = diedDate;
+    }
+
+    var age_calc = today.getFullYear() - birthDate.getFullYear();
+    var m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate()))
+    {
+        age_calc--;
+    }
+    if (m < 0) {
+      m = 12 + m
+    }
+    return [age_calc, m];
+}
+
+
 /* code starts, two options, either it is a name page ... */
 if (window.location.href.indexOf('name') != -1) {
-        born = new Date();
-        died = new Date();
+        var born = new Date();
+        var died = new Date();
         var justyear = false;
         /* get needed dates */
         var alive = getNameDates(born, died);
         /* convert difference into years */
-        age = (new Date() - born) / (1000 * 60 * 60 * 24 * 365.242199);
-        if (age > 1){
+        age_tmp = getAge(born, died);
+        var age = age_tmp[0];
+        var age_months = age_tmp[1];
+
+        if (age > 0){
 
               /* add wanted bits */
               if(doNameAge == true) {
-                      addAge(alive, born, died);
+                      addAge(alive, age, age_months);
               }
               if(doSigns == true) {
                       addSigns(born);
