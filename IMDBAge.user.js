@@ -1,4 +1,4 @@
-/*  IMDBAge v2.17 - Greasemonkey script to add actors ages to IMDB pages
+/*  IMDBAge v2.18 - Greasemonkey script to add actors ages to IMDB pages
     Copyright (C) 2005-2020 Thomas Stewart <thomas@stewarts.org.uk>
 
     This program is free software: you can redistribute it and/or modify
@@ -37,6 +37,7 @@
     This script is not abandoned, email thomas@stewarts.org.uk if it breaks.
 
     Changelog
+    * 2.18 add chinese sign icons
     * 2.17 fix month calculation
     * 2.16 fix chinese signs
     * 2.15 adapted to new layout
@@ -67,7 +68,7 @@ var doFilmAge  = true;
 // ==UserScript==
 // @name        IMDBAge
 // @description Adds the age and other various info onto IMDB pages.
-// @version     2.17
+// @version     2.18
 // @author      Prinz23
 // @namespace   http://www.stewarts.org.uk
 // @include     http*://*imdb.com/name/*
@@ -145,7 +146,7 @@ class ZodiacSign {
 			es : ['Aries', 'Tauro', 'Géminis', 'Cáncer', 'Leo', 'Virgo', 'Libra', 'Escorpio', 'Sagitario', 'Capricornio', 'Acuario', 'Piscis'],
 			ar : ['الحمل', 'الثور', 'الجوزاء', 'السرطان', 'الأسد', 'العذراء', 'الميزان', 'العقرب',' القوس', 'الجدي', 'الدلو', 'الحوت'],
 			ua : ['Овен', 'Телець', 'Близнята', 'Рак', 'Лев', 'Діва', 'Терези', 'Скорпіон', 'Стрілець', 'Козоріг', 'Водолій', 'Риби'],
-      icon : ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓']
+			icon : ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓']
 		}
 
 		static chineseSigns = {
@@ -153,7 +154,8 @@ class ZodiacSign {
 			fr : ['Singe', 'Coq', 'Chien', 'Cochon', 'Rat', 'Bœuf', 'Tigre', 'Lapin', 'Dragon', 'Serpent', 'Cheval', 'Mouton'],
 			es : ['Mono', 'Gallo', 'Perro', 'Cerdo', 'Rata', 'Buey', 'Tigre', 'Conejo', 'Dragón', 'Serpiente', 'Caballo', 'Oveja'],
 			ar : ['القرد', 'الديك', 'الكلب', 'الخنزير', 'الفأر', 'الثور', 'النمر', 'الأرنب', 'التنين', 'الثعبان', 'الحصان', 'الخروف'],
-			ua : ['Мавпа', 'Півень', 'Собака', 'Свиня', 'Щур', 'Бик', 'Тигр', 'Кролик', 'Дракон', 'Змія', 'Кінь', 'Вівця']
+			ua : ['Мавпа', 'Півень', 'Собака', 'Свиня', 'Щур', 'Бик', 'Тигр', 'Кролик', 'Дракон', 'Змія', 'Кінь', 'Вівця'],
+			icon : ['🐒', '🐓', '🐕', '🐖', '🐀', '🐂', '🐅', '🐇', '🐉', '🐍', '🐎', '🐏']
 		}
 
 		static chineseElements = {
@@ -181,7 +183,7 @@ class ZodiacSign {
 
 		#getChineseSign(x, y){
 			let chineseDate = new Intl.DateTimeFormat('fr-TN-u-ca-chinese', {day: '2-digit', month: 'long', year:'numeric'}).format(Date.parse(x)).substring(0, 4)
-			return `${ZodiacSign.chineseSigns[y][+chineseDate % 12]} (${ZodiacSign.chineseElements[y][Math.floor(+chineseDate.charAt(3) / 2)]})`
+			return `${ZodiacSign.chineseSigns[y][+chineseDate % 12]} - ${ZodiacSign.chineseSigns['icon'][+chineseDate % 12]} (${ZodiacSign.chineseElements[y][Math.floor(+chineseDate.charAt(3) / 2)]})`
 		}
 
 }
@@ -531,4 +533,5 @@ if (window.location.href.indexOf('name') != -1) {
                 addFilmAge(filmAge);
         }
 }
+
 
