@@ -1,4 +1,4 @@
-/*  IMDBAge v2.18 - Greasemonkey script to add actors ages to IMDB pages
+/*  IMDBAge v2.19 - Greasemonkey script to add actors ages to IMDB pages
     Copyright (C) 2005-2020 Thomas Stewart <thomas@stewarts.org.uk>
 
     This program is free software: you can redistribute it and/or modify
@@ -37,6 +37,7 @@
     This script is not abandoned, email thomas@stewarts.org.uk if it breaks.
 
     Changelog
+    * 2.19 add age range for tv series apperences
     * 2.18 add chinese sign icons
     * 2.17 fix month calculation
     * 2.16 fix chinese signs
@@ -68,7 +69,7 @@ var doFilmAge  = true;
 // ==UserScript==
 // @name        IMDBAge
 // @description Adds the age and other various info onto IMDB pages.
-// @version     2.18
+// @version     2.19
 // @author      Prinz23
 // @namespace   http://www.stewarts.org.uk
 // @include     http*://*imdb.com/name/*
@@ -367,38 +368,49 @@ function addAges(born) {
                         continue;
                 }
                 //extract the year of the film depending on style
-                yearindex = node.innerHTML.search("[1-2][0-9]{3}")
+                var yearindex = node.innerHTML.search("[1-2][0-9]{3}")
+                var yearmatches = node.innerHTML.match(/[1-2][0-9]{3}/g);
                 //if we don't find a year, continue with for loop
-                if (yearindex < 0) {
+                if (yearmatches === null) {
                         continue;
                 }
-                var filmborn = node.innerHTML.substring(yearindex,
-                        yearindex + 4);
+                var filmborn = yearmatches[0];
                 //alert(filmborn);
 
                 //calculate ages
                 var filmage = new Date().getFullYear() - filmborn;
-                var age = filmborn - born;
-                age = new String(age +
-                        " year" + (age == 1 ? '' : 's') + " old");
+                if (yearmatches.length == 2 && yearmatches[0] != yearmatches[1]) {
+                        var age = filmborn - born;
+                        var age2 = yearmatches[1] - born;
+                        age = new String(age + " - " + age2 + " years old");
+                } else {
+                        var age = filmborn - born;
+                        age = new String(age +
+                                " year" + (age == 1 ? '' : 's') + " old");
+                }
 
-                //get them in a nice format
-                if (filmage < 0) {
-                        var agetxt = new String(
-                                "in " +
-                                Math.abs(filmage) + " year" +
-                                (Math.abs(filmage) == 1 ? '' : 's') +
-                                " will be " + age);
-                }
-                if (filmage == 0) {
-                        var agetxt = new String(
-                                "this year while " + age);
-                }
-                if (filmage > 0) {
-                        var agetxt = new String(
-                                Math.abs(filmage) + " year" +
-                                (Math.abs(filmage) == 1 ? '' : 's') +
-                                " ago while " + age);
+                if (yearmatches.length == 2 && yearmatches[0] != yearmatches[1]) {
+                        var agetxt = new String(Math.abs(new Date().getFullYear() - yearmatches[1]) +
+                                        " - " + Math.abs(filmage) + " years ago while " + age);
+                } else {
+                        //get them in a nice format
+                        if (filmage < 0) {
+                                var agetxt = new String(
+                                        "in " +
+                                        Math.abs(filmage) + " year" +
+                                        (Math.abs(filmage) == 1 ? '' : 's') +
+                                        " will be " + age);
+                        }
+                        if (filmage == 0) {
+                                var agetxt = new String(
+                                        "this year while " + age);
+                        }
+                        if (filmage > 0) {
+                                var agetxt = new String(
+                                        Math.abs(filmage) + " year" +
+                                        (Math.abs(filmage) == 1 ? '' : 's') +
+                                        " ago while " + age);
+                        }
                 }
 
                 //if(i == 4) { alert(agetxt); }
