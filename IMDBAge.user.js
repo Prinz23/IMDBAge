@@ -1,4 +1,4 @@
-/*  IMDBAge v2.20 - Greasemonkey script to add actors ages to IMDB pages
+/*  IMDBAge v2.21 - Greasemonkey script to add actors ages to IMDB pages
     Copyright (C) 2005-2020 Thomas Stewart <thomas@stewarts.org.uk>
 
     This program is free software: you can redistribute it and/or modify
@@ -37,6 +37,7 @@
     This script is not abandoned, email thomas@stewarts.org.uk if it breaks.
 
     Changelog
+    * 2.21 make code compatible with older browsers, some don't support chinese calendar = no chinese zodiac
     * 2.20 fix tv series that have end year in the future
     * 2.19 add age range for tv series apperences
     * 2.18 add chinese sign icons
@@ -70,7 +71,7 @@ var doFilmAge  = true;
 // ==UserScript==
 // @name        IMDBAge
 // @description Adds the age and other various info onto IMDB pages.
-// @version     2.20
+// @version     2.21
 // @author      Prinz23
 // @namespace   http://www.stewarts.org.uk
 // @include     http*://*imdb.com/name/*
@@ -141,8 +142,28 @@ TODO: add script updater support
 */
 
 class ZodiacSign {
+		constructor(value, lang = 'en') {
+			this.sign = ''
+			this.chinese = ''
 
-		static signs = {
+			if (!Object.prototype.hasOwnProperty(ZodiacSign.signs, lang)) lang = 'en'
+			if (!isNaN(Date.parse(value))){
+				this.sign = this.getSign(value, lang)
+				this.chinese = this.getChineseSign(value, lang)
+			}
+		}
+
+		getSign(x, y) {
+			return `${ZodiacSign.signs[y][Number(new Intl.DateTimeFormat('fr-TN-u-ca-persian', {month: 'numeric'}).format(Date.parse(x))) - 1]} - ${ZodiacSign.signs['icon'][Number(new Intl.DateTimeFormat('fr-TN-u-ca-persian', {month: 'numeric'}).format(Date.parse(x))) - 1]}`;
+		}
+
+		getChineseSign(x, y){
+			let chineseDate = new Intl.DateTimeFormat('fr-TN-u-ca-chinese', {day: '2-digit', month: 'long', year:'numeric'}).format(Date.parse(x)).substring(0, 4)
+			return `${ZodiacSign.chineseSigns[y][+chineseDate % 12]} - ${ZodiacSign.chineseSigns['icon'][+chineseDate % 12]} (${ZodiacSign.chineseElements[y][Math.floor(+chineseDate.charAt(3) / 2)]})`
+		}
+
+}
+ZodiacSign.signs = {
 			en : ['Aries: The Ram','Taurus: The Bull','Gemini: The Twins','Cancer: The Crab','Leo: The Lion','Virgo: The Virgin','Libra: The Scales','Scorpio: The Scorpion','Sagittarius: The Archer','Capricorn: The Goat','Aquarius: The Water Bearer','Pisces: The Fish'],
 			fr : ['Bélier', 'Taureau', 'Gémeaux', 'Cancer', 'Lion', 'Vierge', 'Balance', 'Scorpion', 'Sagittaire', 'Capricorne', 'Vereau', 'Poissons'],
 			es : ['Aries', 'Tauro', 'Géminis', 'Cáncer', 'Leo', 'Virgo', 'Libra', 'Escorpio', 'Sagitario', 'Capricornio', 'Acuario', 'Piscis'],
@@ -151,7 +172,7 @@ class ZodiacSign {
 			icon : ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓']
 		}
 
-		static chineseSigns = {
+ZodiacSign.chineseSigns = {
 			en : ['Monkey', 'Rooster', 'Dog', 'Pig', 'Rat', 'Ox', 'Tiger', 'Rabbit', 'Dragon', 'Snake', 'Horse', 'Sheep'],
 			fr : ['Singe', 'Coq', 'Chien', 'Cochon', 'Rat', 'Bœuf', 'Tigre', 'Lapin', 'Dragon', 'Serpent', 'Cheval', 'Mouton'],
 			es : ['Mono', 'Gallo', 'Perro', 'Cerdo', 'Rata', 'Buey', 'Tigre', 'Conejo', 'Dragón', 'Serpiente', 'Caballo', 'Oveja'],
@@ -160,36 +181,13 @@ class ZodiacSign {
 			icon : ['🐒', '🐓', '🐕', '🐖', '🐀', '🐂', '🐅', '🐇', '🐉', '🐍', '🐎', '🐏']
 		}
 
-		static chineseElements = {
+ZodiacSign.chineseElements = {
 			en : ['Metal', 'Water', 'Wood', 'Fire', 'Earth'],
 			fr : ['Métal', 'Eau', 'Bois', 'Feu', 'Terre'],
 			es : ['Metal', 'Agua', 'Madera', 'Fuego', 'Tierra'],
 			ar : ['المعدني', 'المائي', 'الخشبي', 'الناري', 'الأرضي'],
 			ua : ['Метал', 'Вода', 'Дерево', 'Вогонь', 'Земля']
 		}
-
-		constructor(value, lang = 'en') {
-			this.sign = ''
-			this.chinese = ''
-
-			if (!Object.hasOwn(ZodiacSign.signs, lang)) lang = 'en'
-			if (!isNaN(Date.parse(value))){
-				this.sign = this.#getSign(value, lang)
-				this.chinese = this.#getChineseSign(value, lang)
-			}
-		}
-
-		#getSign(x, y) {
-			return `${ZodiacSign.signs[y][Number(new Intl.DateTimeFormat('fr-TN-u-ca-persian', {month: 'numeric'}).format(Date.parse(x))) - 1]} - ${ZodiacSign.signs['icon'][Number(new Intl.DateTimeFormat('fr-TN-u-ca-persian', {month: 'numeric'}).format(Date.parse(x))) - 1]}`;
-		}
-
-		#getChineseSign(x, y){
-			let chineseDate = new Intl.DateTimeFormat('fr-TN-u-ca-chinese', {day: '2-digit', month: 'long', year:'numeric'}).format(Date.parse(x)).substring(0, 4)
-			return `${ZodiacSign.chineseSigns[y][+chineseDate % 12]} - ${ZodiacSign.chineseSigns['icon'][+chineseDate % 12]} (${ZodiacSign.chineseElements[y][Math.floor(+chineseDate.charAt(3) / 2)]})`
-		}
-
-}
-
 
 /*--- waitForKeyElements():  A utility function, for Greasemonkey scripts,
     that detects and handles AJAXed content.
@@ -437,9 +435,15 @@ returns: none */
 function addSigns(born) {
         /* make a node with info in */
         var csign = new ZodiacSign(born);
+        // some older browsers don't support the chinese calendar
+        if (csign.chinese.indexOf("undefined") === -1){
+              var chstr = ", Chinese Zodiac Sign: " +  csign.chinese;
+        } else {
+              var chstr = "";
+        }
+
         var container = document.createTextNode(
-                "Tropical Zodiac Sign: " + csign.sign +
-                ", Chinese Zodiac Sign: " + csign.chinese
+                "Tropical Zodiac Sign: " + csign.sign + chstr
                 );
         var p1 = document.createElement("p");
         p1.appendChild(container);
