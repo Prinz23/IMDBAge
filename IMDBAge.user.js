@@ -1,4 +1,4 @@
-/*  IMDBAge v2.19 - Greasemonkey script to add actors ages to IMDB pages
+/*  IMDBAge v2.20 - Greasemonkey script to add actors ages to IMDB pages
     Copyright (C) 2005-2020 Thomas Stewart <thomas@stewarts.org.uk>
 
     This program is free software: you can redistribute it and/or modify
@@ -37,6 +37,7 @@
     This script is not abandoned, email thomas@stewarts.org.uk if it breaks.
 
     Changelog
+    * 2.20 fix tv series that have end year in the future
     * 2.19 add age range for tv series apperences
     * 2.18 add chinese sign icons
     * 2.17 fix month calculation
@@ -69,7 +70,7 @@ var doFilmAge  = true;
 // ==UserScript==
 // @name        IMDBAge
 // @description Adds the age and other various info onto IMDB pages.
-// @version     2.19
+// @version     2.20
 // @author      Prinz23
 // @namespace   http://www.stewarts.org.uk
 // @include     http*://*imdb.com/name/*
@@ -390,8 +391,17 @@ function addAges(born) {
                 }
 
                 if (yearmatches.length == 2 && yearmatches[0] != yearmatches[1]) {
-                        var agetxt = new String(Math.abs(new Date().getFullYear() - yearmatches[1]) +
-                                        " - " + Math.abs(filmage) + " years ago while " + age);
+                        var endfilmage = new Date().getFullYear() - yearmatches[1];
+                        if (endfilmage < 0) {
+                                if (filmage == 0) {
+                                        var startage = new String("this year");
+                                } else {
+                                        var startage = new String(Math.abs(filmage) + " year" + (Math.abs(filmage) == 1 ? '' : 's') + " ago");
+                                }
+                                var agetxt = new String(startage + " and ongoing while " + age);
+                        } else {
+                                var agetxt = new String(Math.abs(endfilmage) + " - " + Math.abs(filmage) + " years ago while " + age);
+                        }
                 } else {
                         //get them in a nice format
                         if (filmage < 0) {
