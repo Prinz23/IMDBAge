@@ -1,4 +1,4 @@
-/*  IMDBAge v2.22 - Greasemonkey script to add actors ages to IMDB pages
+/*  IMDBAge v2.23 - Greasemonkey script to add actors ages to IMDB pages
     Copyright (C) 2005-2020 Thomas Stewart <thomas@stewarts.org.uk>
 
     This program is free software: you can redistribute it and/or modify
@@ -37,6 +37,7 @@
     This script is not abandoned, email thomas@stewarts.org.uk if it breaks.
 
     Changelog
+    * 2.23 don't use birthdates without year
     * 2.22 add fallback function for older browsers (chinese zodiac)
     * 2.21 make code compatible with older browsers, some don't support chinese calendar = no chinese zodiac
     * 2.20 fix tv series that have end year in the future
@@ -72,7 +73,7 @@ var doFilmAge  = true;
 // ==UserScript==
 // @name        IMDBAge
 // @description Adds the age and other various info onto IMDB pages.
-// @version     2.22
+// @version     2.23
 // @author      Prinz23
 // @namespace   http://www.stewarts.org.uk
 // @include     http*://*imdb.com/name/*
@@ -596,21 +597,24 @@ function getNameDates(born, died) {
         var bdata = JSON.parse(document.getElementById('__NEXT_DATA__').textContent)['props']['pageProps']['mainColumnData']['birthDate'];
         if (bdata) {
           var bd = bdata['dateComponents'];
-          if (bd['month'] === null || bd['day'] == null){
-            justyear = true;
+          if (bd['year'] !== null) {
+            if (bd['month'] === null || bd['day'] == null){
+              justyear = true;
+            }
+            born.setFullYear(bd['year']);
+            born.setMonth(bd['month'] - 1);
+            born.setDate(bd['day']);
           }
-          born.setFullYear(bd['year']);
-          born.setMonth(bd['month'] - 1);
-          born.setDate(bd['day']);
         }
         var ddata = JSON.parse(document.getElementById('__NEXT_DATA__').textContent)['props']['pageProps']['mainColumnData']['deathDate'];
         if (ddata){
-          alive = false;
-          var dd = ddata['dateComponents'];
-          died.setFullYear(dd['year']);
-          died.setMonth(dd['month'] - 1);
-          died.setDate(dd['day']);
-
+            alive = false;
+            var dd = ddata['dateComponents'];
+            if (dd['year'] !== null) {
+            died.setFullYear(dd['year']);
+            died.setMonth(dd['month'] - 1);
+            died.setDate(dd['day']);
+          }
         }
 
         //alert("Born: " + born + "\nDied: " + died + "\nAlive: " + alive);
@@ -875,5 +879,3 @@ if (window.location.href.indexOf('name') != -1) {
                 addFilmAge(filmAge);
         }
 }
-
-
